@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "Scam Link Detector",
+  "version": "1.0.0",
+  "description": "Advanced browser security extension that detects scam links, fake ads, suspicious redirects, and dangerous websites in real time.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "notifications",
+    "activeTab",
+    "scripting",
+    "alarms",
+    "contextMenus",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Scam Link Detector"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "scam_rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "warning.html",
+        "styles.css"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
