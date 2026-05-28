@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scam Link Detector</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>🛡 Scam Link Detector</h1>
+
+    <div class="status-card">
+      <h2>Protection Status</h2>
+      <p id="protection-status">Active</p>
+    </div>
+
+    <div class="scan-card">
+      <h2>Scan Current Website</h2>
+      <button id="scan-button">Scan Page</button>
+    </div>
+
+    <div class="results-card">
+      <h2>Scan Results</h2>
+
+      <p>
+        <strong>Risk Score:</strong>
+        <span id="risk-score">0</span>/100
+      </p>
+
+      <p>
+        <strong>Status:</strong>
+        <span id="risk-status">Safe</span>
+      </p>
+
+      <div id="reasons-container"></div>
+    </div>
+
+    <div class="history-card">
+      <h2>Recent Scans</h2>
+      <ul id="history-list"></ul>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+
+</body>
+</html>
