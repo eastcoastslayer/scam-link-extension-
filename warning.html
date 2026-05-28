@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Security Warning</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0b1020;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .warning-container {
+      width: 100%;
+      max-width: 650px;
+      background: #151b2e;
+      border: 2px solid red;
+      border-radius: 18px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+    }
+
+    .warning-icon {
+      font-size: 70px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      color: #ff4d4d;
+      margin-bottom: 20px;
+    }
+
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #dbe4ff;
+    }
+
+    .risk-box {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .risk-box h2 {
+      margin-top: 0;
+      color: #5eead4;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+
+    .button-group {
+      margin-top: 30px;
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .back-button {
+      background: #5eead4;
+      color: #07111f;
+    }
+
+    .continue-button {
+      background: red;
+      color: white;
+    }
+
+    .back-button:hover {
+      background: #2dd4bf;
+    }
+
+    .continue-button:hover {
+      background: #cc0000;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div class="warning-container">
+
+    <div class="warning-icon">
+      ⚠️
+    </div>
+
+    <h1>Dangerous Website Detected</h1>
+
+    <p>
+      Scam Link Detector has identified this website as potentially dangerous.
+      This page may contain phishing attempts, malware, fake downloads,
+      scam advertisements, or suspicious redirects.
+    </p>
+
+    <div class="risk-box">
+
+      <h2>Possible Threats</h2>
+
+      <ul>
+        <li>Fake login or phishing page</li>
+        <li>Malware or virus download attempt</li>
+        <li>Scam giveaway or fake reward</li>
+        <li>Credential theft attempt</li>
+        <li>Dangerous redirects or popups</li>
+      </ul>
+
+    </div>
+
+    <div class="button-group">
+
+      <button class="back-button" onclick="goBack()">
+        Go Back To Safety
+      </button>
+
+      <button class="continue-button" onclick="continueAnyway()">
+        Continue Anyway
+      </button>
+
+    </div>
+
+  </div>
+
+  <script>
+
+    function goBack() {
+      window.history.back();
+    }
+
+    function continueAnyway() {
+      alert(
+        "You are proceeding at your own risk."
+      );
+    }
+
+  </script>
+
+</body>
+</html>
