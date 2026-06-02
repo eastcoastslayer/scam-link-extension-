@@ -1,33 +1,23 @@
-
-
 const TRUSTED_DOMAINS = [
-  "google.com",
-  "youtube.com",
-  "github.com",
-  "microsoft.com",
-  "apple.com",
-  "paypal.com",
-  "facebook.com",
-  "instagram.com",
-  "amazon.com",
-  "chatgpt.com"
+  "google.com", "youtube.com", "github.com", "microsoft.com",
+  "apple.com", "paypal.com", "facebook.com", "instagram.com",
+  "amazon.com", "chatgpt.com", "openai.com"
 ];
 
 const SUSPICIOUS_TLDS = [
   ".xyz", ".top", ".click", ".monster", ".buzz", ".live",
-  ".rest", ".fit", ".cam", ".cfd", ".icu", ".tk", ".ml", ".ga"
+  ".cam", ".cfd", ".icu", ".tk", ".ml", ".ga"
 ];
 
 const SCAM_KEYWORDS = [
   "free-robux", "free-vbucks", "claim-reward", "urgent-prize",
-  "verify-account", "account-suspended", "login-verification",
-  "gift-card-generator", "crypto-scam", "airdrop", "double-your-money",
+  "verify-account", "account-suspended", "gift-card-generator",
   "wallet-verify", "seed-phrase", "password-reset-now"
 ];
 
 const CLICKBAIT_KEYWORDS = [
-  "you-wont-believe", "shocking", "secret-method", "make-money-fast",
-  "one-weird-trick", "doctors-hate", "limited-time", "act-now"
+  "you-wont-believe", "shocking", "secret-method",
+  "make-money-fast", "one-weird-trick", "limited-time", "act-now"
 ];
 
 const DARKNET_KEYWORDS = [
@@ -36,14 +26,13 @@ const DARKNET_KEYWORDS = [
 ];
 
 const HACK_TOOL_KEYWORDS = [
-  "crypter", "stealer", "keylogger", "rat-tool", "password-dump",
-  "cookie-logger", "token-grabber", "malware-builder",
-  "phishing-kit", "exploit-kit"
+  "keylogger", "token-grabber", "cookie-logger", "phishing-kit",
+  "malware-builder", "crypter", "stealer", "rat-tool"
 ];
 
 const DANGEROUS_EXTENSIONS = [
-  ".exe", ".scr", ".bat", ".cmd", ".msi", ".apk", ".jar",
-  ".vbs", ".ps1", ".reg", ".dll", ".iso"
+  ".exe", ".scr", ".bat", ".cmd", ".msi", ".apk",
+  ".jar", ".vbs", ".ps1", ".reg", ".dll", ".iso"
 ];
 
 const BRAND_TARGETS = [
@@ -70,7 +59,13 @@ chrome.runtime.onInstalled.addListener(() => {
     aggressiveDetection: true,
     popupProtection: true,
     downloadProtection: true,
-    scanHistory: []
+    scanHistory: [],
+    stats: {
+      totalScans: 0,
+      safeSites: 0,
+      suspiciousSites: 0,
+      dangerousSites: 0
+    }
   });
 });
 
@@ -108,14 +103,9 @@ function scanUrl(url) {
   try {
     parsedUrl = new URL(url);
   } catch {
-    return {
-      url,
-      score: 80,
-      status: "Dangerous",
-      category: "Invalid URL",
-      reasons: ["URL could not be safely read."],
-      scannedAt: new Date().toISOString()
-    };
+    return buildResult(url, "unknown", 80, "Dangerous", "Invalid URL", [
+      "URL could not be safely read."
+    ]);
   }
 
   const lowerUrl = url.toLowerCase();
@@ -148,7 +138,7 @@ function scanUrl(url) {
 
   if (isIpAddress(hostname)) {
     score += 25;
-    reasons.push("Website uses an IP address instead of a normal domain.");
+    reasons.push("Website uses an IP address instead of a domain.");
   }
 
   for (const tld of SUSPICIOUS_TLDS) {
@@ -186,7 +176,7 @@ function scanUrl(url) {
     if (lowerUrl.includes(keyword)) {
       score += 30;
       category = "Potential Hack Tool / Malware Content";
-      reasons.push(`Potential hacking/malware tool indicator: ${keyword}`);
+      reasons.push(`Potential hacking or malware indicator: ${keyword}`);
     }
   }
 
@@ -220,6 +210,10 @@ function scanUrl(url) {
     reasons.push("No major risk indicators detected.");
   }
 
+  return buildResult(url, hostname, score, status, category, reasons);
+}
+
+function buildResult(url, hostname, score, status, category, reasons) {
   return {
     url,
     hostname,
@@ -238,8 +232,7 @@ function isTrustedDomain(hostname) {
 }
 
 function hasTooManyHyphens(text) {
-  const count = (text.match(/-/g) || []).length;
-  return count >= 4;
+  return (text.match(/-/g) || []).length >= 4;
 }
 
 function isIpAddress(hostname) {
@@ -262,30 +255,31 @@ function detectTyposquatting(hostname) {
   const normalized = normalizeLookalikes(cleaned);
 
   for (const target of BRAND_TARGETS) {
-    const brand = target.brand;
-    const real = target.real;
-
-    if (cleaned === real || cleaned.endsWith("." + real)) {
+    if (cleaned === target.real || cleaned.endsWith("." + target.real)) {
       continue;
     }
 
-    if (normalized.includes(brand)) {
+    if (normalized.includes(target.brand)) {
       return {
         detected: true,
-        reason: `Possible impersonation of ${brand}. Real domain should be ${real}.`
+        reason: `Possible impersonation of ${target.brand}. Real domain should be ${target.real}.`
       };
     }
   }
 
-  return {
-    detected: false,
-    reason: ""
-  };
+  return { detected: false, reason: "" };
 }
 
 function saveScan(url, result) {
-  chrome.storage.local.get(["scanHistory"], (data) => {
+  chrome.storage.local.get(["scanHistory", "stats"], (data) => {
     const history = data.scanHistory || [];
+
+    const stats = data.stats || {
+      totalScans: 0,
+      safeSites: 0,
+      suspiciousSites: 0,
+      dangerousSites: 0
+    };
 
     history.unshift({
       url,
@@ -297,8 +291,15 @@ function saveScan(url, result) {
       scannedAt: result.scannedAt
     });
 
+    stats.totalScans++;
+
+    if (result.status === "Safe") stats.safeSites++;
+    if (result.status === "Suspicious") stats.suspiciousSites++;
+    if (result.status === "Dangerous") stats.dangerousSites++;
+
     chrome.storage.local.set({
-      scanHistory: history.slice(0, 100)
+      scanHistory: history.slice(0, 100),
+      stats
     });
   });
 }
