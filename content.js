@@ -1,69 +1,109 @@
-// Scam Link Detector - content.js
 
-const SCAM_KEYWORDS = [
-  "free-robux",
-  "free-vbucks",
-  "gift-card-generator",
-  "claim-reward",
-  "crypto-scam",
-  "verify-account",
-  "account-suspended",
-  "login-verification",
-  "urgent-prize",
-  "free-money"
-];
+
+let scanTimeout;
 
 const SUSPICIOUS_BUTTON_TEXT = [
   "download now",
   "claim reward",
   "verify account",
   "free prize",
-  "get rich",
+  "click allow",
+  "allow notifications",
   "install now",
-  "unlock access"
+  "unlock access",
+  "you have won",
+  "claim now",
+  "limited time",
+  "act now",
+  "free robux",
+  "free vbucks"
 ];
 
-scanPage();
-observePageChanges();
+const SUSPICIOUS_PAGE_TEXT = [
+  "your device is infected",
+  "virus detected",
+  "click allow to continue",
+  "enable notifications to verify",
+  "you have won",
+  "claim your reward",
+  "account suspended",
+  "verify your wallet",
+  "enter your seed phrase",
+  "free gift card",
+  "dark web",
+  "darknet",
+  ".onion",
+  "keylogger",
+  "token grabber",
+  "cookie logger",
+  "phishing kit",
+  "malware builder"
+];
+
+const DANGEROUS_FILE_TYPES = [
+  ".exe", ".scr", ".bat", ".cmd", ".msi", ".apk",
+  ".jar", ".vbs", ".ps1", ".reg", ".dll", ".iso"
+];
+
+initProtection();
+
+function initProtection() {
+  chrome.storage.local.get(
+    ["protectionEnabled"],
+    (settings) => {
+      if (settings.protectionEnabled === false) return;
+
+      scanPage();
+      protectClicks();
+      observePageChanges();
+    }
+  );
+}
 
 function scanPage() {
   scanLinks();
   scanButtons();
   scanForms();
-  scanPopups();
+  scanPageText();
 }
 
 function scanLinks() {
-  const links = document.querySelectorAll("a");
+  const links = document.querySelectorAll("a[href]");
 
   links.forEach((link) => {
-    const href = link.href;
+    if (link.dataset.scamChecked === "true") return;
 
-    if (!href) return;
+    link.dataset.scamChecked = "true";
 
-    const result = analyzeUrl(href);
+    chrome.runtime.sendMessage(
+      {
+        type: "SCAN_URL",
+        url: link.href
+      },
+      (result) => {
+        if (!result) return;
 
-    if (result.score >= 35) {
-      highlightDangerousLink(link, result);
-    }
+        if (result.score >= 35) {
+          markRiskyElement(link, result);
+        }
+      }
+    );
   });
 }
 
 function scanButtons() {
-  const buttons = document.querySelectorAll("button, a, div");
+  const elements = document.querySelectorAll("button, a, div, span");
 
-  buttons.forEach((button) => {
-    const text = button.innerText?.toLowerCase();
+  elements.forEach((element) => {
+    const text = (element.innerText || "").toLowerCase().trim();
 
     if (!text) return;
 
     for (const keyword of SUSPICIOUS_BUTTON_TEXT) {
       if (text.includes(keyword)) {
-        button.style.border = "2px solid red";
-        button.style.boxShadow = "0 0 10px red";
-        button.setAttribute(
-          "title",
-          "Warning: Suspicious button detected"
+        markSuspiciousTextElement(
+          element,
+          `Suspicious button or ad text detected: ${keyword}`
         );
       }
     }
@@ -71,155 +111,192 @@ function scanButtons() {
 }
 
 function scanForms() {
-  const passwordInputs = document.querySelectorAll(
-    'input[type="password"]'
-  );
+  const passwordInputs = document.querySelectorAll('input[type="password"]');
 
-  if (passwordInputs.length > 0) {
-    const domain = window.location.hostname;
+  if (passwordInputs.length === 0) return;
 
-    if (
-      domain.includes("free") ||
-      domain.includes("gift") ||
-      domain.includes("verify")
-    ) {
-      showSecurityBanner(
-        "Potential phishing login page detected"
-      );
-    }
+  const pageText = document.body.innerText.toLowerCase();
+  const url = window.location.href.toLowerCase();
+
+  const riskyLogin =
+    pageText.includes("verify") ||
+    pageText.includes("suspended") ||
+    pageText.includes("wallet") ||
+    pageText.includes("seed phrase") ||
+    url.includes("verify") ||
+    url.includes("login") ||
+    url.includes("account");
+
+  if (riskyLogin) {
+    showSecurityBanner(
+      "Potential phishing login or credential theft page detected."
+    );
   }
 }
 
-function scanPopups() {
-  const popupKeywords = [
-    "allow notifications",
-    "click allow",
-    "you have won",
-    "virus detected",
-    "claim now"
-  ];
+function scanPageText() {
+  const text = document.body.innerText.toLowerCase();
 
-  const allElements = document.querySelectorAll("*");
+  let matches = [];
 
-  allElements.forEach((element) => {
-    const text = element.innerText?.toLowerCase();
+  for (const keyword of SUSPICIOUS_PAGE_TEXT) {
+    if (text.includes(keyword)) {
+      matches.push(keyword);
+    }
+  }
 
-    if (!text) return;
+  if (matches.length >= 2) {
+    showSecurityBanner(
+      `Suspicious page content detected: ${matches.slice(0, 3).join(", ")}`
+    );
+  }
+}
 
-    for (const keyword of popupKeywords) {
-      if (text.includes(keyword)) {
-        element.style.border = "2px solid orange";
+function protectClicks() {
+  document.addEventListener(
+    "click",
+    (event) => {
+      const link = event.target.closest("a[href]");
+
+      if (!link) return;
+
+      const href = link.href.toLowerCase();
+
+      for (const fileType of DANGEROUS_FILE_TYPES) {
+        if (href.includes(fileType)) {
+          const proceed = confirm(
+            `Warning!\n\nThis link may download a dangerous file type: ${fileType}\n\nOnly continue if you fully trust this website.`
+          );
+
+          if (!proceed) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+
+          return;
+        }
       }
-    }
-  });
+
+      chrome.runtime.sendMessage(
+        {
+          type: "SCAN_URL",
+          url: link.href
+        },
+        (result) => {
+          if (!result) return;
+
+          if (result.score >= 70) {
+            const proceed = confirm(
+              `Dangerous link detected!\n\nStatus: ${result.status}\nRisk Score: ${result.score}/100\nCategory: ${result.category}\n\nReasons:\n${result.reasons.join(
+                "\n"
+              )}\n\nDo you still want to continue?`
+            );
+
+            if (!proceed) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }
+        }
+      );
+    },
+    true
+  );
 }
 
-function analyzeUrl(url) {
-  let score = 0;
-  const reasons = [];
+function markRiskyElement(element, result) {
+  element.style.backgroundColor = "rgba(255, 77, 77, 0.18)";
+  element.style.outline = "2px solid #ff4d4d";
+  element.style.borderRadius = "4px";
 
-  const lowerUrl = url.toLowerCase();
-
-  for (const keyword of SCAM_KEYWORDS) {
-    if (lowerUrl.includes(keyword)) {
-      score += 20;
-      reasons.push(`Suspicious keyword: ${keyword}`);
-    }
-  }
-
-  if (lowerUrl.startsWith("http://")) {
-    score += 15;
-    reasons.push("Website is not using HTTPS");
-  }
-
-  if (lowerUrl.includes("@")) {
-    score += 20;
-    reasons.push("URL contains hidden redirect character (@)");
-  }
-
-  if (lowerUrl.length > 120) {
-    score += 10;
-    reasons.push("Very long URL detected");
-  }
-
-  if (hasTooManyHyphens(lowerUrl)) {
-    score += 10;
-    reasons.push("Too many hyphens detected");
-  }
-
-  if (isIPAddress(lowerUrl)) {
-    score += 25;
-    reasons.push("IP address used instead of domain");
-  }
-
-  return {
-    score,
-    reasons
-  };
-}
-
-function highlightDangerousLink(link, result) {
-  link.style.backgroundColor = "rgba(255, 0, 0, 0.2)";
-  link.style.border = "1px solid red";
-  link.style.padding = "2px";
-
-  link.setAttribute(
+  element.setAttribute(
     "title",
-    `Risk Score: ${result.score}\n${result.reasons.join("\n")}`
+    `Scam Link Detector\nStatus: ${result.status}\nScore: ${result.score}/100\nCategory: ${result.category}\n${result.reasons.join("\n")}`
   );
 
-  link.addEventListener("click", (event) => {
-    if (result.score >= 70) {
-      const proceed = confirm(
-        `Warning!\n\nThis link may be dangerous.\n\nRisk Score: ${result.score}\n\nDo you still want to continue?`
-      );
+  addBadge(element, result);
+}
 
-      if (!proceed) {
-        event.preventDefault();
-      }
-    }
-  });
+function markSuspiciousTextElement(element, reason) {
+  if (element.dataset.scamTextChecked === "true") return;
+
+  element.dataset.scamTextChecked = "true";
+  element.style.outline = "2px solid orange";
+  element.style.borderRadius = "4px";
+
+  element.setAttribute(
+    "title",
+    `Scam Link Detector Warning\n${reason}`
+  );
+}
+
+function addBadge(element, result) {
+  if (element.dataset.scamBadgeAdded === "true") return;
+
+  element.dataset.scamBadgeAdded = "true";
+
+  const badge = document.createElement("span");
+  badge.textContent = ` ⚠ ${result.status} (${result.score})`;
+  badge.style.marginLeft = "6px";
+  badge.style.padding = "2px 6px";
+  badge.style.borderRadius = "6px";
+  badge.style.fontSize = "12px";
+  badge.style.fontWeight = "bold";
+  badge.style.background = result.score >= 70 ? "#ff4d4d" : "orange";
+  badge.style.color = "#000";
+  badge.style.zIndex = "999999";
+
+  element.appendChild(badge);
 }
 
 function showSecurityBanner(message) {
   if (document.getElementById("scam-detector-banner")) return;
 
   const banner = document.createElement("div");
-
   banner.id = "scam-detector-banner";
 
-  banner.innerText = `⚠ ${message}`;
+  banner.innerHTML = `
+    <strong>⚠ Scam Link Detector:</strong> ${message}
+    <button id="scam-detector-close">Dismiss</button>
+  `;
 
   banner.style.position = "fixed";
   banner.style.top = "0";
   banner.style.left = "0";
   banner.style.width = "100%";
-  banner.style.backgroundColor = "#b30000";
+  banner.style.background = "#7f1d1d";
   banner.style.color = "white";
   banner.style.padding = "12px";
-  banner.style.fontSize = "16px";
+  banner.style.fontSize = "15px";
   banner.style.fontWeight = "bold";
   banner.style.textAlign = "center";
-  banner.style.zIndex = "999999";
+  banner.style.zIndex = "999999999";
+  banner.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)";
 
-  document.body.appendChild(banner);
-}
+  document.documentElement.appendChild(banner);
 
-function hasTooManyHyphens(url) {
-  const count = (url.match(/-/g) || []).length;
-  return count >= 5;
-}
+  const closeButton = document.getElementById("scam-detector-close");
+  closeButton.style.marginLeft = "12px";
+  closeButton.style.padding = "6px 10px";
+  closeButton.style.border = "none";
+  closeButton.style.borderRadius = "6px";
+  closeButton.style.cursor = "pointer";
 
-function isIPAddress(url) {
-  return /https?:\/\/\d{1,3}(\.\d{1,3}){3}/.test(url);
+  closeButton.addEventListener("click", () => {
+    banner.remove();
+  });
 }
 
 function observePageChanges() {
   const observer = new MutationObserver(() => {
-    scanPage();
+    clearTimeout(scanTimeout);
+
+    scanTimeout = setTimeout(() => {
+      scanPage();
+    }, 800);
   });
 
-  observer.observe(document.body, {
+  observer.observe(document.documentElement, {
     childList: true,
     subtree: true
   });
