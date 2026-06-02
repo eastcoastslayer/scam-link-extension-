@@ -1,5 +1,3 @@
-
-
 document.addEventListener("DOMContentLoaded", () => {
   const scanButton = document.getElementById("scan-button");
   const openOptionsButton = document.getElementById("open-options");
@@ -13,8 +11,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const historyList = document.getElementById("history-list");
   const protectionStatus = document.getElementById("protection-status");
 
+  const totalScans = document.getElementById("total-scans");
+  const safeSites = document.getElementById("safe-sites");
+  const suspiciousSites = document.getElementById("suspicious-sites");
+  const dangerousSites = document.getElementById("dangerous-sites");
+
   loadProtectionStatus();
   loadHistory();
+  loadStats();
 
   scanButton.addEventListener("click", scanCurrentTab);
 
@@ -48,6 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateResults(response);
         loadHistory();
+        loadStats();
       }
     );
   }
@@ -57,8 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
     riskScore.textContent = result.score;
     riskStatus.textContent = result.status;
     riskCategory.textContent = result.category || "General";
-
-    riskStatus.className = "";
 
     if (result.status === "Dangerous") {
       riskStatus.style.color = "#ff2f00";
@@ -118,6 +121,22 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  function loadStats() {
+    chrome.storage.local.get(["stats"], (data) => {
+      const stats = data.stats || {
+        totalScans: 0,
+        safeSites: 0,
+        suspiciousSites: 0,
+        dangerousSites: 0
+      };
+
+      totalScans.textContent = stats.totalScans;
+      safeSites.textContent = stats.safeSites;
+      suspiciousSites.textContent = stats.suspiciousSites;
+      dangerousSites.textContent = stats.dangerousSites;
+    });
+  }
+
   function loadProtectionStatus() {
     chrome.storage.local.get(["protectionEnabled"], (data) => {
       const enabled = data.protectionEnabled !== false;
@@ -133,11 +152,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function truncateUrl(url, maxLength) {
     if (!url) return "Unknown URL";
-
-    if (url.length > maxLength) {
-      return url.substring(0, maxLength) + "...";
-    }
-
-    return url;
+    return url.length > maxLength ? url.substring(0, maxLength) + "..." : url;
   }
 });
