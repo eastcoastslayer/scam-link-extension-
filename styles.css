@@ -5,7 +5,7 @@
 
 body {
   margin: 0;
-  width: 360px;
+  width: 380px;
   background: #ffffff;
   color: #111111;
 }
@@ -15,7 +15,7 @@ body {
 }
 
 h1 {
-  font-size: 22px;
+  font-size: 23px;
   margin-bottom: 16px;
   color: #ff6a00;
   letter-spacing: -0.5px;
@@ -32,16 +32,12 @@ h2 {
 .results-card,
 .history-card {
   background: #ffffff;
-  border: 1px solid #e5e5e5;
+  border: 1px solid #e7e7e7;
   border-left: 5px solid #ff6a00;
   border-radius: 14px;
   padding: 13px;
   margin-bottom: 12px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
-}
-
-#protection-status {
-  font-weight: bold;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.07);
 }
 
 button {
@@ -59,12 +55,23 @@ button {
 button:hover {
   background: #ffffff;
   color: #ff6a00;
-  box-shadow: 0 0 12px rgba(255, 106, 0, 0.45);
+  box-shadow: 0 0 14px rgba(255, 106, 0, 0.45);
 }
 
 #risk-score,
-#risk-status {
+#risk-status,
+#risk-category,
+#protection-status {
   font-weight: bold;
+}
+
+#scanned-url {
+  background: #fafafa;
+  border: 1px solid #eeeeee;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12px;
+  word-break: break-all;
 }
 
 #reasons-container p {
