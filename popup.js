@@ -1,12 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
   const scanButton = document.getElementById("scan-button");
+  const reportButton = document.getElementById("report-button");
   const openOptionsButton = document.getElementById("open-options");
 
   const riskScore = document.getElementById("risk-score");
   const riskStatus = document.getElementById("risk-status");
   const riskCategory = document.getElementById("risk-category");
   const scannedUrl = document.getElementById("scanned-url");
-
   const reasonsContainer = document.getElementById("reasons-container");
   const historyList = document.getElementById("history-list");
   const protectionStatus = document.getElementById("protection-status");
@@ -15,12 +15,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const safeSites = document.getElementById("safe-sites");
   const suspiciousSites = document.getElementById("suspicious-sites");
   const dangerousSites = document.getElementById("dangerous-sites");
+  const userReports = document.getElementById("user-reports");
 
   loadProtectionStatus();
   loadHistory();
   loadStats();
 
   scanButton.addEventListener("click", scanCurrentTab);
+  reportButton.addEventListener("click", reportCurrentTab);
 
   openOptionsButton.addEventListener("click", () => {
     chrome.runtime.openOptionsPage();
@@ -29,30 +31,54 @@ document.addEventListener("DOMContentLoaded", () => {
   async function scanCurrentTab() {
     reasonsContainer.innerHTML = "<p>Scanning website...</p>";
 
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true
-    });
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if (!tab || !tab.url) {
       reasonsContainer.innerHTML = "<p>Could not read this tab.</p>";
       return;
     }
 
+    chrome.runtime.sendMessage({ type: "SCAN_URL", url: tab.url }, (response) => {
+      if (!response) {
+        reasonsContainer.innerHTML = "<p>No scan response received.</p>";
+        return;
+      }
+
+      updateResults(response);
+      loadHistory();
+      loadStats();
+    });
+  }
+
+  async function reportCurrentTab() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab || !tab.url) {
+      alert("Could not read this website.");
+      return;
+    }
+
+    const reason = prompt(
+      "Why are you reporting this site?\n\nExamples: scam, phishing, clickbait, fake download, dark web reference, hack tool content"
+    );
+
+    if (!reason) return;
+
     chrome.runtime.sendMessage(
       {
-        type: "SCAN_URL",
-        url: tab.url
+        type: "REPORT_SITE",
+        url: tab.url,
+        title: tab.title || "Unknown title",
+        reason
       },
       (response) => {
-        if (!response) {
-          reasonsContainer.innerHTML = "<p>No scan response received.</p>";
-          return;
+        if (response && response.success) {
+          alert("Report saved successfully.");
+          loadStats();
+          loadHistory();
+        } else {
+          alert("Report could not be saved.");
         }
-
-        updateResults(response);
-        loadHistory();
-        loadStats();
       }
     );
   }
@@ -63,13 +89,10 @@ document.addEventListener("DOMContentLoaded", () => {
     riskStatus.textContent = result.status;
     riskCategory.textContent = result.category || "General";
 
-    if (result.status === "Dangerous") {
-      riskStatus.style.color = "#ff2f00";
-    } else if (result.status === "Suspicious") {
-      riskStatus.style.color = "#ff6a00";
-    } else {
-      riskStatus.style.color = "#168a3a";
-    }
+    riskStatus.style.color =
+      result.status === "Dangerous" ? "#ff2f00" :
+      result.status === "Suspicious" ? "#ff6a00" :
+      "#168a3a";
 
     reasonsContainer.innerHTML = "";
 
@@ -79,42 +102,55 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     result.reasons.forEach((reason) => {
-      const reasonItem = document.createElement("p");
-      reasonItem.textContent = `• ${reason}`;
-      reasonsContainer.appendChild(reasonItem);
+      const item = document.createElement("p");
+      item.textContent = `• ${reason}`;
+      reasonsContainer.appendChild(item);
     });
   }
 
   function loadHistory() {
-    chrome.storage.local.get(["scanHistory"], (data) => {
+    chrome.storage.local.get(["scanHistory", "userReports"], (data) => {
       historyList.innerHTML = "";
 
       const history = data.scanHistory || [];
+      const reports = data.userReports || [];
 
-      if (history.length === 0) {
-        historyList.innerHTML = "<li>No scans yet.</li>";
+      const combined = [
+        ...reports.map(report => ({
+          type: "Report",
+          status: "Reported",
+          score: "User",
+          category: report.reason,
+          url: report.url,
+          scannedAt: report.reportedAt
+        })),
+        ...history.map(scan => ({
+          type: "Scan",
+          ...scan
+        }))
+      ].sort((a, b) => new Date(b.scannedAt || b.reportedAt) - new Date(a.scannedAt || a.reportedAt));
+
+      if (combined.length === 0) {
+        historyList.innerHTML = "<li>No activity yet.</li>";
         return;
       }
 
-      history.slice(0, 6).forEach((item) => {
+      combined.slice(0, 6).forEach((item) => {
         const li = document.createElement("li");
 
         li.innerHTML = `
-          <strong>${item.status}</strong> 
-          <span>(${item.score}/100)</span>
+          <strong>${item.type || "Scan"}: ${item.status}</strong>
           <br>
           <small>${item.category || "General"}</small>
           <br>
           <small>${truncateUrl(item.url, 48)}</small>
         `;
 
-        if (item.status === "Dangerous") {
-          li.style.borderLeft = "5px solid #ff2f00";
-        } else if (item.status === "Suspicious") {
-          li.style.borderLeft = "5px solid #ff6a00";
-        } else {
-          li.style.borderLeft = "5px solid #168a3a";
-        }
+        li.style.borderLeft =
+          item.type === "Report" ? "5px solid #ff6a00" :
+          item.status === "Dangerous" ? "5px solid #ff2f00" :
+          item.status === "Suspicious" ? "5px solid #ff6a00" :
+          "5px solid #168a3a";
 
         historyList.appendChild(li);
       });
@@ -122,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function loadStats() {
-    chrome.storage.local.get(["stats"], (data) => {
+    chrome.storage.local.get(["stats", "userReports"], (data) => {
       const stats = data.stats || {
         totalScans: 0,
         safeSites: 0,
@@ -130,10 +166,13 @@ document.addEventListener("DOMContentLoaded", () => {
         dangerousSites: 0
       };
 
+      const reports = data.userReports || [];
+
       totalScans.textContent = stats.totalScans;
       safeSites.textContent = stats.safeSites;
       suspiciousSites.textContent = stats.suspiciousSites;
       dangerousSites.textContent = stats.dangerousSites;
+      userReports.textContent = reports.length;
     });
   }
 
