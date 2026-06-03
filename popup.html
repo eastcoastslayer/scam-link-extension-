@@ -9,7 +9,6 @@
 
 <body>
   <div class="container">
-
     <h1>Scam Link Detector</h1>
 
     <div class="status-card">
@@ -21,21 +20,17 @@
     <div class="scan-card">
       <h2>Current Website Scan</h2>
       <button id="scan-button">Scan This Page</button>
+      <button id="report-button" class="secondary-button">Report This Site</button>
     </div>
 
     <div class="results-card">
       <h2>Threat Result</h2>
-
       <p><strong>Website:</strong></p>
       <p id="scanned-url">Not scanned yet</p>
-
       <p><strong>Risk Score:</strong> <span id="risk-score">0</span>/100</p>
       <p><strong>Status:</strong> <span id="risk-status">Safe</span></p>
       <p><strong>Category:</strong> <span id="risk-category">General</span></p>
-
-      <div id="reasons-container">
-        <p>No scan results yet.</p>
-      </div>
+      <div id="reasons-container"><p>No scan results yet.</p></div>
     </div>
 
     <div class="history-card">
@@ -44,13 +39,13 @@
       <p><strong>Safe Sites:</strong> <span id="safe-sites">0</span></p>
       <p><strong>Suspicious Sites:</strong> <span id="suspicious-sites">0</span></p>
       <p><strong>Dangerous Sites:</strong> <span id="dangerous-sites">0</span></p>
+      <p><strong>User Reports:</strong> <span id="user-reports">0</span></p>
     </div>
 
     <div class="history-card">
       <h2>Recent Activity</h2>
       <ul id="history-list"></ul>
     </div>
-
   </div>
 
   <script src="popup.js"></script>
