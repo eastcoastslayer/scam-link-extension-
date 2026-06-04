@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
+const { scanUrl } = require("./threatEngine");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,96 +22,24 @@ if (!fs.existsSync(reportsFile)) {
 }
 
 function readReports() {
-  const data = fs.readFileSync(reportsFile, "utf8");
-  return JSON.parse(data || "[]");
+  try {
+    const data = fs.readFileSync(reportsFile, "utf8");
+    return JSON.parse(data || "[]");
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
 
 function saveReports(reports) {
   fs.writeFileSync(reportsFile, JSON.stringify(reports, null, 2));
 }
 
-function scanUrl(url) {
-  let score = 0;
-  let category = "General";
-  const reasons = [];
-
-  const lowerUrl = url.toLowerCase();
-
-  if (lowerUrl.includes("free-robux") || lowerUrl.includes("free-vbucks")) {
-    score += 35;
-    category = "Gaming Scam";
-    reasons.push("Free game currency scam pattern detected.");
-  }
-
-  if (lowerUrl.includes("claim") || lowerUrl.includes("reward")) {
-    score += 20;
-    category = "Scam / Clickbait";
-    reasons.push("Reward or claim wording detected.");
-  }
-
-  if (lowerUrl.includes(".onion") || lowerUrl.includes("darkweb")) {
-    score += 40;
-    category = "Darknet Reference";
-    reasons.push("Darknet or onion reference detected.");
-  }
-
-  if (
-    lowerUrl.includes("keylogger") ||
-    lowerUrl.includes("token-grabber") ||
-    lowerUrl.includes("phishing-kit") ||
-    lowerUrl.includes("malware-builder")
-  ) {
-    score += 45;
-    category = "Potential Malware / Hack Tool";
-    reasons.push("Potential hacking or malware-tool keyword detected.");
-  }
-
-  if (
-    lowerUrl.includes(".exe") ||
-    lowerUrl.includes(".scr") ||
-    lowerUrl.includes(".bat") ||
-    lowerUrl.includes(".apk") ||
-    lowerUrl.includes(".jar")
-  ) {
-    score += 30;
-    category = "Dangerous Download";
-    reasons.push("Dangerous download file type detected.");
-  }
-
-  if (lowerUrl.startsWith("http://")) {
-    score += 15;
-    reasons.push("Website does not use HTTPS.");
-  }
-
-  if (lowerUrl.includes("@")) {
-    score += 25;
-    reasons.push("URL contains @ symbol, often used to hide redirects.");
-  }
-
-  score = Math.min(score, 100);
-
-  let status = "Safe";
-  if (score >= 70) status = "Dangerous";
-  else if (score >= 35) status = "Suspicious";
-
-  if (reasons.length === 0) {
-    reasons.push("No major risk indicators detected.");
-  }
-
-  return {
-    url,
-    score,
-    status,
-    category,
-    reasons,
-    scannedAt: new Date().toISOString()
-  };
-}
-
 app.get("/", (req, res) => {
   res.json({
+    success: true,
     message: "Scam Link Detector Backend is running",
-    status: "online"
+    version: "2.0.0"
   });
 });
 
@@ -119,35 +48,61 @@ app.post("/api/check-url", (req, res) => {
 
   if (!url) {
     return res.status(400).json({
+      success: false,
       error: "URL is required"
     });
   }
 
-  const result = scanUrl(url);
-  res.json(result);
+  try {
+    const result = scanUrl(url);
+
+    res.json({
+      success: true,
+      result
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      error: "Scan failed"
+    });
+  }
 });
 
 app.post("/api/report", (req, res) => {
-  const { url, title, reason, category } = req.body;
+  const {
+    url,
+    title,
+    reason,
+    category
+  } = req.body;
 
   if (!url || !reason) {
     return res.status(400).json({
+      success: false,
       error: "URL and reason are required"
     });
   }
 
   const reports = readReports();
 
+  const scanResult = scanUrl(url);
+
   const newReport = {
     id: Date.now(),
     url,
     title: title || "Unknown title",
     reason,
-    category: category || "User Report",
+    category: category || scanResult.category,
+    riskScore: scanResult.score,
+    status: scanResult.status,
+    scanReasons: scanResult.reasons,
     reportedAt: new Date().toISOString()
   };
 
   reports.unshift(newReport);
+
   saveReports(reports);
 
   res.status(201).json({
@@ -161,11 +116,54 @@ app.get("/api/reports", (req, res) => {
   const reports = readReports();
 
   res.json({
+    success: true,
     totalReports: reports.length,
     reports
   });
 });
 
+app.get("/api/stats", (req, res) => {
+  const reports = readReports();
+
+  const stats = {
+    totalReports: reports.length,
+    safeReports: reports.filter(
+      (r) => r.status === "Safe"
+    ).length,
+
+    suspiciousReports: reports.filter(
+      (r) => r.status === "Suspicious"
+    ).length,
+
+    dangerousReports: reports.filter(
+      (r) => r.status === "Dangerous"
+    ).length
+  };
+
+  res.json({
+    success: true,
+    stats
+  });
+});
+
+app.delete("/api/reports", (req, res) => {
+  saveReports([]);
+
+  res.json({
+    success: true,
+    message: "All reports deleted"
+  });
+});
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: "Endpoint not found"
+  });
+});
+
 app.listen(PORT, () => {
-  console.log(`Scam Link Detector Backend running on port ${PORT}`);
+  console.log(
+    `Scam Link Detector Backend running on port ${PORT}`
+  );
 });
