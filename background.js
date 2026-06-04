@@ -1,43 +1,134 @@
-// same upgraded background engine, now with report system
+const API_BASE_URL = "http://localhost:3001";
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(["userReports"], (data) => {
-    chrome.storage.local.set({
-      protectionEnabled: true,
-      aggressiveDetection: true,
-      popupProtection: true,
-      downloadProtection: true,
-      scanHistory: [],
-      userReports: data.userReports || [],
-      stats: {
-        totalScans: 0,
-        safeSites: 0,
-        suspiciousSites: 0,
-        dangerousSites: 0
-      }
-    });
+  chrome.contextMenus.create({
+    id: "scan-link",
+    title: "Scan this link with Scam Link Detector",
+    contexts: ["link"]
   });
+
+  chrome.storage.local.set({
+    protectionEnabled: true,
+    aggressiveDetection: true,
+    popupProtection: true,
+    downloadProtection: true,
+    scanHistory: [],
+    userReports: [],
+    stats: {
+      totalScans: 0,
+      safeSites: 0,
+      suspiciousSites: 0,
+      dangerousSites: 0
+    }
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === "scan-link" && info.linkUrl) {
+    scanUrl(info.linkUrl).then((result) => {
+      saveScan(info.linkUrl, result);
+
+      chrome.notifications.create({
+        type: "basic",
+        iconUrl: "icon128.png",
+        title: "Scam Link Detector",
+        message: `${result.status} - Risk Score: ${result.score}/100`
+      });
+    });
+  }
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "SCAN_URL") {
-    const result = scanUrl(message.url);
-    saveScan(message.url, result);
-    sendResponse(result);
+    scanUrl(message.url).then((result) => {
+      saveScan(message.url, result);
+      sendResponse(result);
+    });
+
     return true;
   }
 
   if (message.type === "REPORT_SITE") {
-    saveReport(message);
-    sendResponse({ success: true });
+    saveReport(message).then((result) => {
+      sendResponse(result);
+    });
+
     return true;
   }
 });
 
-function scanUrl(url) {
+async function scanUrl(url) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/check-url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ url })
+    });
+
+    if (!response.ok) {
+      throw new Error("Backend scan failed");
+    }
+
+    const data = await response.json();
+
+    if (data.result) {
+      return data.result;
+    }
+
+    return data;
+  } catch (error) {
+    return localFallbackScan(url);
+  }
+}
+
+async function saveReport(report) {
+  const localReport = {
+    url: report.url,
+    title: report.title || "Unknown title",
+    reason: report.reason || "No reason provided",
+    category: "User Report",
+    reportedAt: new Date().toISOString()
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/report`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(localReport)
+    });
+
+    if (!response.ok) {
+      throw new Error("Backend report failed");
+    }
+
+    const data = await response.json();
+
+    saveLocalReport(localReport);
+
+    return {
+      success: true,
+      source: "backend",
+      data
+    };
+  } catch (error) {
+    saveLocalReport(localReport);
+
+    return {
+      success: true,
+      source: "local",
+      warning: "Backend unavailable. Report saved locally."
+    };
+  }
+}
+
+function localFallbackScan(url) {
   let score = 0;
-  const reasons = [];
   let category = "General";
+  const reasons = [];
 
   const lowerUrl = url.toLowerCase();
 
@@ -96,8 +187,11 @@ function scanUrl(url) {
 
   let status = "Safe";
 
-  if (score >= 70) status = "Dangerous";
-  else if (score >= 35) status = "Suspicious";
+  if (score >= 70) {
+    status = "Dangerous";
+  } else if (score >= 35) {
+    status = "Suspicious";
+  }
 
   if (reasons.length === 0) {
     reasons.push("No major risk indicators detected.");
@@ -109,7 +203,8 @@ function scanUrl(url) {
     status,
     category,
     reasons,
-    scannedAt: new Date().toISOString()
+    scannedAt: new Date().toISOString(),
+    source: "local-fallback"
   };
 }
 
@@ -126,11 +221,13 @@ function saveScan(url, result) {
 
     history.unshift({
       url,
+      hostname: result.hostname || "unknown",
       score: result.score,
       status: result.status,
       category: result.category,
       reasons: result.reasons,
-      scannedAt: result.scannedAt
+      scannedAt: result.scannedAt,
+      source: result.source || "backend"
     });
 
     stats.totalScans++;
@@ -146,16 +243,11 @@ function saveScan(url, result) {
   });
 }
 
-function saveReport(report) {
+function saveLocalReport(report) {
   chrome.storage.local.get(["userReports"], (data) => {
     const reports = data.userReports || [];
 
-    reports.unshift({
-      url: report.url,
-      title: report.title,
-      reason: report.reason,
-      reportedAt: new Date().toISOString()
-    });
+    reports.unshift(report);
 
     chrome.storage.local.set({
       userReports: reports.slice(0, 100)
