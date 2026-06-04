@@ -38,7 +38,9 @@ const SCAM_KEYWORDS = [
   "wallet-verify",
   "seed-phrase",
   "password-reset-now",
-  "login-verification"
+  "login-verification",
+  "claim",
+  "reward"
 ];
 
 const CLICKBAIT_KEYWORDS = [
@@ -72,7 +74,8 @@ const HACK_TOOL_KEYWORDS = [
   "stealer",
   "rat-tool",
   "password-dump",
-  "exploit-kit"
+  "exploit-kit",
+  "malware"
 ];
 
 const DANGEROUS_EXTENSIONS = [
@@ -102,17 +105,17 @@ const BRAND_TARGETS = [
   { brand: "steam", real: "steampowered.com" }
 ];
 
-function scanUrl(url) {
+function scanUrl(url, reports = []) {
   let score = 0;
-  const reasons = [];
   let category = "General";
+  const reasons = [];
 
   let parsedUrl;
 
   try {
     parsedUrl = new URL(url);
   } catch {
-    return buildResult(url, "unknown", 80, "Dangerous", "Invalid URL", [
+    return buildResult(url, "unknown", 80, "Dangerous", "Invalid URL", 0, [
       "URL could not be safely read."
     ]);
   }
@@ -159,7 +162,7 @@ function scanUrl(url) {
 
   for (const keyword of SCAM_KEYWORDS) {
     if (lowerUrl.includes(keyword)) {
-      score += 22;
+      score += 20;
       category = "Scam / Phishing";
       reasons.push(`Scam keyword detected: ${keyword}`);
     }
@@ -205,6 +208,18 @@ function scanUrl(url) {
     reasons.push(typoResult.reason);
   }
 
+  const matchingReports = findMatchingReports(url, reports);
+
+  if (matchingReports.length > 0) {
+    const boost = Math.min(matchingReports.length * 15, 45);
+    score += boost;
+    category = "Reported Website";
+
+    reasons.push(
+      `This website has been reported ${matchingReports.length} time(s) by users.`
+    );
+  }
+
   score = Math.max(0, Math.min(score, 100));
 
   let status = "Safe";
@@ -219,19 +234,49 @@ function scanUrl(url) {
     reasons.push("No major risk indicators detected.");
   }
 
-  return buildResult(url, hostname, score, status, category, reasons);
+  return buildResult(
+    url,
+    hostname,
+    score,
+    status,
+    category,
+    matchingReports.length,
+    reasons
+  );
 }
 
-function buildResult(url, hostname, score, status, category, reasons) {
+function buildResult(url, hostname, score, status, category, reportCount, reasons) {
   return {
     url,
     hostname,
     score,
     status,
     category,
+    reportCount,
     reasons,
     scannedAt: new Date().toISOString()
   };
+}
+
+function findMatchingReports(url, reports) {
+  let currentHost = "";
+
+  try {
+    currentHost = new URL(url).hostname.toLowerCase();
+  } catch {
+    return [];
+  }
+
+  return reports.filter((report) => {
+    if (!report.url) return false;
+
+    try {
+      const reportedHost = new URL(report.url).hostname.toLowerCase();
+      return reportedHost === currentHost;
+    } catch {
+      return report.url.toLowerCase() === url.toLowerCase();
+    }
+  });
 }
 
 function isTrustedDomain(hostname) {
