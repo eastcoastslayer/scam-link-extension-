@@ -1,6 +1,9 @@
-
-
 let scanTimeout;
+
+const DANGEROUS_FILE_TYPES = [
+  ".exe", ".scr", ".bat", ".cmd", ".msi", ".apk",
+  ".jar", ".vbs", ".ps1", ".reg", ".dll", ".iso"
+];
 
 const SUSPICIOUS_BUTTON_TEXT = [
   "download now",
@@ -40,24 +43,16 @@ const SUSPICIOUS_PAGE_TEXT = [
   "malware builder"
 ];
 
-const DANGEROUS_FILE_TYPES = [
-  ".exe", ".scr", ".bat", ".cmd", ".msi", ".apk",
-  ".jar", ".vbs", ".ps1", ".reg", ".dll", ".iso"
-];
-
 initProtection();
 
 function initProtection() {
-  chrome.storage.local.get(
-    ["protectionEnabled"],
-    (settings) => {
-      if (settings.protectionEnabled === false) return;
+  chrome.storage.local.get(["protectionEnabled"], (settings) => {
+    if (settings.protectionEnabled === false) return;
 
-      scanPage();
-      protectClicks();
-      observePageChanges();
-    }
-  );
+    scanPage();
+    protectClicks();
+    observePageChanges();
+  });
 }
 
 function scanPage() {
@@ -103,7 +98,7 @@ function scanButtons() {
       if (text.includes(keyword)) {
         markSuspiciousTextElement(
           element,
-          `Suspicious button or ad text detected: ${keyword}`
+          `Suspicious button/ad text detected: ${keyword}`
         );
       }
     }
@@ -137,7 +132,7 @@ function scanForms() {
 function scanPageText() {
   const text = document.body.innerText.toLowerCase();
 
-  let matches = [];
+  const matches = [];
 
   for (const keyword of SUSPICIOUS_PAGE_TEXT) {
     if (text.includes(keyword)) {
@@ -205,9 +200,9 @@ function protectClicks() {
 }
 
 function markRiskyElement(element, result) {
-  element.style.backgroundColor = "rgba(255, 77, 77, 0.18)";
-  element.style.outline = "2px solid #ff4d4d";
-  element.style.borderRadius = "4px";
+  element.style.backgroundColor = "rgba(255, 106, 0, 0.16)";
+  element.style.outline = "2px solid #ff6a00";
+  element.style.borderRadius = "5px";
 
   element.setAttribute(
     "title",
@@ -221,8 +216,8 @@ function markSuspiciousTextElement(element, reason) {
   if (element.dataset.scamTextChecked === "true") return;
 
   element.dataset.scamTextChecked = "true";
-  element.style.outline = "2px solid orange";
-  element.style.borderRadius = "4px";
+  element.style.outline = "2px solid #ff6a00";
+  element.style.borderRadius = "5px";
 
   element.setAttribute(
     "title",
@@ -236,14 +231,15 @@ function addBadge(element, result) {
   element.dataset.scamBadgeAdded = "true";
 
   const badge = document.createElement("span");
+
   badge.textContent = ` ⚠ ${result.status} (${result.score})`;
   badge.style.marginLeft = "6px";
   badge.style.padding = "2px 6px";
   badge.style.borderRadius = "6px";
   badge.style.fontSize = "12px";
   badge.style.fontWeight = "bold";
-  badge.style.background = result.score >= 70 ? "#ff4d4d" : "orange";
-  badge.style.color = "#000";
+  badge.style.background = result.score >= 70 ? "#ff2f00" : "#ff6a00";
+  badge.style.color = "#ffffff";
   badge.style.zIndex = "999999";
 
   element.appendChild(badge);
@@ -264,23 +260,27 @@ function showSecurityBanner(message) {
   banner.style.top = "0";
   banner.style.left = "0";
   banner.style.width = "100%";
-  banner.style.background = "#7f1d1d";
-  banner.style.color = "white";
+  banner.style.background = "#ff6a00";
+  banner.style.color = "#ffffff";
   banner.style.padding = "12px";
   banner.style.fontSize = "15px";
   banner.style.fontWeight = "bold";
   banner.style.textAlign = "center";
   banner.style.zIndex = "999999999";
-  banner.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)";
+  banner.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
 
   document.documentElement.appendChild(banner);
 
   const closeButton = document.getElementById("scam-detector-close");
+
   closeButton.style.marginLeft = "12px";
   closeButton.style.padding = "6px 10px";
   closeButton.style.border = "none";
   closeButton.style.borderRadius = "6px";
   closeButton.style.cursor = "pointer";
+  closeButton.style.background = "#ffffff";
+  closeButton.style.color = "#111111";
+  closeButton.style.fontWeight = "bold";
 
   closeButton.addEventListener("click", () => {
     banner.remove();
