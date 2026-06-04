@@ -1,3 +1,5 @@
+const API_BASE_URL = "http://localhost:3001";
+
 document.addEventListener("DOMContentLoaded", () => {
   const scanButton = document.getElementById("scan-button");
   const reportButton = document.getElementById("report-button");
@@ -31,27 +33,39 @@ document.addEventListener("DOMContentLoaded", () => {
   async function scanCurrentTab() {
     reasonsContainer.innerHTML = "<p>Scanning website...</p>";
 
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true
+    });
 
     if (!tab || !tab.url) {
       reasonsContainer.innerHTML = "<p>Could not read this tab.</p>";
       return;
     }
 
-    chrome.runtime.sendMessage({ type: "SCAN_URL", url: tab.url }, (response) => {
-      if (!response) {
-        reasonsContainer.innerHTML = "<p>No scan response received.</p>";
-        return;
-      }
+    chrome.runtime.sendMessage(
+      {
+        type: "SCAN_URL",
+        url: tab.url
+      },
+      (response) => {
+        if (!response) {
+          reasonsContainer.innerHTML = "<p>No scan response received.</p>";
+          return;
+        }
 
-      updateResults(response);
-      loadHistory();
-      loadStats();
-    });
+        updateResults(response);
+        loadHistory();
+        loadStats();
+      }
+    );
   }
 
   async function reportCurrentTab() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true
+    });
 
     if (!tab || !tab.url) {
       alert("Could not read this website.");
@@ -73,7 +87,12 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       (response) => {
         if (response && response.success) {
-          alert("Report saved successfully.");
+          if (response.source === "backend") {
+            alert("Report sent to backend threat database.");
+          } else {
+            alert("Backend unavailable. Report saved locally.");
+          }
+
           loadStats();
           loadHistory();
         } else {
@@ -90,9 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
     riskCategory.textContent = result.category || "General";
 
     riskStatus.style.color =
-      result.status === "Dangerous" ? "#ff2f00" :
-      result.status === "Suspicious" ? "#ff6a00" :
-      "#168a3a";
+      result.status === "Dangerous"
+        ? "#ff2f00"
+        : result.status === "Suspicious"
+        ? "#ff6a00"
+        : "#168a3a";
 
     reasonsContainer.innerHTML = "";
 
@@ -116,7 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const reports = data.userReports || [];
 
       const combined = [
-        ...reports.map(report => ({
+        ...reports.map((report) => ({
           type: "Report",
           status: "Reported",
           score: "User",
@@ -124,11 +145,15 @@ document.addEventListener("DOMContentLoaded", () => {
           url: report.url,
           scannedAt: report.reportedAt
         })),
-        ...history.map(scan => ({
+        ...history.map((scan) => ({
           type: "Scan",
           ...scan
         }))
-      ].sort((a, b) => new Date(b.scannedAt || b.reportedAt) - new Date(a.scannedAt || a.reportedAt));
+      ].sort(
+        (a, b) =>
+          new Date(b.scannedAt || b.reportedAt) -
+          new Date(a.scannedAt || a.reportedAt)
+      );
 
       if (combined.length === 0) {
         historyList.innerHTML = "<li>No activity yet.</li>";
@@ -147,10 +172,13 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
 
         li.style.borderLeft =
-          item.type === "Report" ? "5px solid #ff6a00" :
-          item.status === "Dangerous" ? "5px solid #ff2f00" :
-          item.status === "Suspicious" ? "5px solid #ff6a00" :
-          "5px solid #168a3a";
+          item.type === "Report"
+            ? "5px solid #ff6a00"
+            : item.status === "Dangerous"
+            ? "5px solid #ff2f00"
+            : item.status === "Suspicious"
+            ? "5px solid #ff6a00"
+            : "5px solid #168a3a";
 
         historyList.appendChild(li);
       });
