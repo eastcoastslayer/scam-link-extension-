@@ -1,220 +1,193 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Scam Link Detector Admin Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scam Link Detector Dashboard V2</title>
 
-<style>
-body {
-    margin: 0;
-    padding: 20px;
-    background: #f5f5f5;
-    font-family: Arial, sans-serif;
-}
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
 
-header {
-    background: #ff6600;
-    color: white;
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-}
+    body {
+      margin: 0;
+      background: #f5f5f5;
+      color: #111;
+      padding: 20px;
+    }
 
-h1 {
-    margin: 0;
-}
+    header {
+      background: #fff;
+      border-left: 8px solid #ff6a00;
+      border-radius: 14px;
+      padding: 22px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.08);
+    }
 
-.stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}
+    header h1 {
+      margin: 0;
+      color: #ff6a00;
+    }
 
-.card {
-    background: white;
-    border-left: 6px solid #ff6600;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
 
-.card h2 {
-    margin: 0;
-    font-size: 28px;
-    color: #ff6600;
-}
+    .stat-card {
+      background: white;
+      border-top: 5px solid #ff6a00;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.07);
+    }
 
-.card p {
-    margin: 5px 0 0;
-}
+    .stat-card h2 {
+      margin: 0;
+      color: #ff6a00;
+      font-size: 30px;
+    }
 
-.controls {
-    margin-bottom: 20px;
-}
+    .controls {
+      background: white;
+      padding: 16px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.07);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-button {
-    background: #ff6600;
-    color: white;
-    border: none;
-    padding: 12px 18px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-}
+    input, select, button {
+      padding: 11px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-weight: bold;
+    }
 
-button:hover {
-    opacity: 0.9;
-}
+    button {
+      background: #ff6a00;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
 
-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-}
+    button:hover {
+      opacity: 0.9;
+    }
 
-th {
-    background: #ff6600;
-    color: white;
-    padding: 12px;
-}
+    .table-container {
+      background: white;
+      border-radius: 14px;
+      overflow-x: auto;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.07);
+    }
 
-td {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-}
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
 
-.safe {
-    color: green;
-    font-weight: bold;
-}
+    th {
+      background: #ff6a00;
+      color: white;
+      padding: 13px;
+      text-align: left;
+    }
 
-.suspicious {
-    color: orange;
-    font-weight: bold;
-}
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
 
-.dangerous {
-    color: red;
-    font-weight: bold;
-}
-</style>
+    .safe { color: green; font-weight: bold; }
+    .suspicious { color: orange; font-weight: bold; }
+    .dangerous { color: red; font-weight: bold; }
 
+    .domain-box {
+      background: white;
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 14px;
+      box-shadow: 0 8px 22px rgba(0,0,0,0.07);
+    }
+
+    .domain-box h2 {
+      color: #ff6a00;
+    }
+
+    .small {
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
 </head>
+
 <body>
 
 <header>
-    <h1>🛡 Scam Link Detector Dashboard</h1>
-    <p>Threat Intelligence & Community Reports</p>
+  <h1>🛡 Scam Link Detector Dashboard V2</h1>
+  <p>Threat Intelligence, Community Reports, Risk Monitoring</p>
 </header>
 
-<div class="stats">
-
-    <div class="card">
-        <h2 id="totalReports">0</h2>
-        <p>Total Reports</p>
-    </div>
-
-    <div class="card">
-        <h2 id="safeCount">0</h2>
-        <p>Safe</p>
-    </div>
-
-    <div class="card">
-        <h2 id="suspiciousCount">0</h2>
-        <p>Suspicious</p>
-    </div>
-
-    <div class="card">
-        <h2 id="dangerousCount">0</h2>
-        <p>Dangerous</p>
-    </div>
-
+<div class="stats-grid">
+  <div class="stat-card"><h2 id="totalReports">0</h2><p>Total Reports</p></div>
+  <div class="stat-card"><h2 id="safeCount">0</h2><p>Safe</p></div>
+  <div class="stat-card"><h2 id="suspiciousCount">0</h2><p>Suspicious</p></div>
+  <div class="stat-card"><h2 id="dangerousCount">0</h2><p>Dangerous</p></div>
+  <div class="stat-card"><h2 id="topDomain">None</h2><p>Top Reported Domain</p></div>
 </div>
 
 <div class="controls">
-    <button onclick="loadReports()">Refresh Reports</button>
+  <input id="searchInput" type="text" placeholder="Search website, reason, category..." />
+  <select id="statusFilter">
+    <option value="All">All Statuses</option>
+    <option value="Safe">Safe</option>
+    <option value="Suspicious">Suspicious</option>
+    <option value="Dangerous">Dangerous</option>
+  </select>
+
+  <select id="categoryFilter">
+    <option value="All">All Categories</option>
+  </select>
+
+  <button id="refreshReports">Refresh</button>
+  <button id="exportCsv">Export CSV</button>
+  <button id="clearReports">Clear All</button>
 </div>
 
-<table>
+<div class="table-container">
+  <table>
     <thead>
-        <tr>
-            <th>Website</th>
-            <th>Category</th>
-            <th>Risk Score</th>
-            <th>Status</th>
-            <th>Reason</th>
-        </tr>
+      <tr>
+        <th>Website</th>
+        <th>Domain</th>
+        <th>Category</th>
+        <th>Risk</th>
+        <th>Status</th>
+        <th>Reason</th>
+        <th>Reported At</th>
+      </tr>
     </thead>
-
     <tbody id="reportTable">
+      <tr><td colspan="7">Loading reports...</td></tr>
     </tbody>
+  </table>
+</div>
 
-</table>
+<div class="domain-box">
+  <h2>Top Reported Domains</h2>
+  <ul id="domainList"></ul>
+</div>
 
-<script>
-
-async function loadReports() {
-
-    try {
-
-        const response =
-        await fetch("http://localhost:3001/api/reports");
-
-        const data =
-        await response.json();
-
-        document.getElementById("totalReports").textContent =
-        data.totalReports || 0;
-
-        let safe = 0;
-        let suspicious = 0;
-        let dangerous = 0;
-
-        const table =
-        document.getElementById("reportTable");
-
-        table.innerHTML = "";
-
-        data.reports.forEach(report => {
-
-            if(report.status === "Safe") safe++;
-            if(report.status === "Suspicious") suspicious++;
-            if(report.status === "Dangerous") dangerous++;
-
-            const row =
-            document.createElement("tr");
-
-            row.innerHTML = `
-                <td>${report.url}</td>
-                <td>${report.category}</td>
-                <td>${report.riskScore}</td>
-                <td class="${report.status.toLowerCase()}">
-                    ${report.status}
-                </td>
-                <td>${report.reason}</td>
-            `;
-
-            table.appendChild(row);
-
-        });
-
-        document.getElementById("safeCount").textContent = safe;
-        document.getElementById("suspiciousCount").textContent = suspicious;
-        document.getElementById("dangerousCount").textContent = dangerous;
-
-    } catch(error) {
-
-        console.error(error);
-
-    }
-
-}
-
-loadReports();
-
-</script>
-
+<script src="admin.js"></script>
 </body>
 </html>
